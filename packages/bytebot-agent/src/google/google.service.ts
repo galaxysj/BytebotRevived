@@ -54,6 +54,9 @@ export class GoogleService implements BytebotAgentService {
   ): Promise<BytebotAgentResponse> {
     try {
       const maxTokens = 8192;
+      const geminiThinkingConfig = {
+        thinkingLevel: 'medium',
+      } as any;
 
       // Convert our message content blocks to Anthropic's expected format
       const googleMessages = this.formatMessagesForGoogle(messages);
@@ -63,9 +66,7 @@ export class GoogleService implements BytebotAgentService {
           model,
           contents: googleMessages,
           config: {
-            thinkingConfig: {
-              thinkingBudget: 24576,
-            },
+            thinkingConfig: geminiThinkingConfig,
             maxOutputTokens: maxTokens,
             systemInstruction: systemPrompt,
             tools: useTools

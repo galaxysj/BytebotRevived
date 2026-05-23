@@ -3,14 +3,26 @@ import { BytebotAgentModel } from '../agent/agent.types';
 export const GOOGLE_MODELS: BytebotAgentModel[] = [
   {
     provider: 'google',
-    name: 'gemini-2.5-pro',
-    title: 'Gemini 2.5 Pro',
+    name: 'gemini-3-flash-preview',
+    title: 'Gemini 3 Flash',
     contextWindow: 1000000,
   },
   {
     provider: 'google',
-    name: 'gemini-2.5-flash',
-    title: 'Gemini 2.5 Flash',
+    name: 'gemini-3.1-pro-preview',
+    title: 'Gemini 3.1 Pro',
+    contextWindow: 1000000,
+  },
+  {
+    provider: 'google',
+    name: 'gemini-3.1-flash-lite',
+    title: 'Gemini 3.1 Flash Lite',
+    contextWindow: 1000000,
+  },
+  {
+    provider: 'google',
+    name: 'gemini-3.5-flash',
+    title: 'Gemini 3.5 Flash',
     contextWindow: 1000000,
   },
 ];
