@@ -7,6 +7,18 @@ interface TextContentProps {
 }
 
 export function TextContent({ block }: TextContentProps) {
+  // Validate block and text content
+  if (!block || !block.text || typeof block.text !== 'string') {
+    console.warn('[TextContent] Invalid text block:', block);
+    return null;
+  }
+
+  // Ensure text is clean (no unclosed HTML tags)
+  const text = block.text.trim();
+  if (!text) {
+    return null;
+  }
+
   return (
     <div className="mb-3">
       <div className="text-bytebot-bronze-dark-8 prose prose-sm max-w-none text-sm">
@@ -104,7 +116,7 @@ export function TextContent({ block }: TextContentProps) {
             ),
           }}
         >
-          {block.text}
+          {text}
         </ReactMarkdown>
       </div>
     </div>

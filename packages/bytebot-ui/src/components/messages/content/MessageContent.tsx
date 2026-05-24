@@ -20,12 +20,26 @@ export function MessageContent({
   content,
   isTakeOver = false,
 }: MessageContentProps) {
+  // Validate and filter content blocks
+  const validBlocks = content.filter((block) => {
+    if (!block || typeof block !== 'object') {
+      console.warn('[MessageContent] Invalid block:', block);
+      return false;
+    }
+    if (!('type' in block)) {
+      console.warn('[MessageContent] Block missing type:', block);
+      return false;
+    }
+    return true;
+  });
+
   // Filter content blocks and check if any visible content remains
-  const visibleBlocks = content.filter((block) => {
+  const visibleBlocks = validBlocks.filter((block) => {
     // Filter logic from the original code
     if (
       isToolResultContentBlock(block) &&
       block.content &&
+      Array.isArray(block.content) &&
       block.content.some((contentBlock) => isImageContentBlock(contentBlock))
     ) {
       return true;
@@ -53,6 +67,7 @@ export function MessageContent({
 
           {isToolResultContentBlock(block) &&
             !block.is_error &&
+            Array.isArray(block.content) &&
             block.content.map((contentBlock, contentBlockIndex) => {
               if (isImageContentBlock(contentBlock)) {
                 return (
@@ -73,8 +88,10 @@ export function MessageContent({
           {isToolResultContentBlock(block) &&
             !block.is_error &&
             block.tool_use_id === "set_task_status" &&
-            block.content?.[0].type === "text" && (
-              <TextContent block={block.content?.[0]} />
+            Array.isArray(block.content) &&
+            block.content.length > 0 &&
+            block.content[0].type === "text" && (
+              <TextContent block={block.content[0]} />
             )}
         </div>
       ))}

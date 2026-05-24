@@ -59,6 +59,7 @@ export type ToolUseContentBlock = {
   name: string;
   id: string;
   input: Record<string, any>;
+  signature?: string;
 } & MessageContentBlockBase;
 
 export type MoveMouseToolUseBlock = ToolUseContentBlock & {

@@ -126,8 +126,8 @@ export function ChatContainer({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Fixed chat input at bottom */}
-          {[TaskStatus.RUNNING, TaskStatus.NEEDS_HELP].includes(taskStatus) && (
+          {/* Fixed chat input at bottom (always available for follow-up commands) */}
+          {
             <div className="bg-bytebot-bronze-light-3 z-10 flex-shrink-0">
               <div className="border-bytebot-bronze-light-7 rounded-b-lg border-x border-b p-2">
                 <div className="bg-bytebot-bronze-light-2 border-bytebot-bronze-light-7 rounded-lg border p-2">
@@ -137,12 +137,12 @@ export function ChatContainer({
                     onInputChange={setInput}
                     onSend={handleAddMessage}
                     minLines={1}
-                    placeholder="Add more details to your task..."
+                    placeholder="Ask a followup..."
                   />
                 </div>
               </div>
             </div>
-          )}
+          }
         </>
       ) : (
         <div className="flex h-full items-center justify-center">

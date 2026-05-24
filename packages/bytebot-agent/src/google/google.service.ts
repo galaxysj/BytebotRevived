@@ -30,6 +30,7 @@ import { DEFAULT_MODEL } from './google.constants';
 export class GoogleService implements BytebotAgentService {
   private readonly google: GoogleGenAI;
   private readonly logger = new Logger(GoogleService.name);
+  private readonly googleDebugLoggingEnabled = true;
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
@@ -61,6 +62,43 @@ export class GoogleService implements BytebotAgentService {
       // Convert our message content blocks to Anthropic's expected format
       const googleMessages = this.formatMessagesForGoogle(messages);
 
+      if (this.googleDebugLoggingEnabled) {
+        this.logger.debug(
+          `Google request summary: ${JSON.stringify({
+            model,
+            messageCount: googleMessages.length,
+            roleAndParts: googleMessages.map((msg) => ({
+              role: msg.role,
+              partTypes: (msg.parts || []).map((part) =>
+                part.functionCall
+                  ? {
+                      type: 'functionCall',
+                      name: part.functionCall.name,
+                      id: part.functionCall.id,
+                      hasThoughtSignature: Boolean(part.thoughtSignature),
+                    }
+                  : part.functionResponse
+                    ? {
+                        type: 'functionResponse',
+                        name: part.functionResponse.name,
+                        id: part.functionResponse.id,
+                      }
+                    : part.inlineData
+                      ? { type: 'inlineData' }
+                      : part.thought
+                        ? {
+                            type: 'thought',
+                            hasThoughtSignature: Boolean(
+                              part.thoughtSignature,
+                            ),
+                          }
+                        : { type: 'text' },
+              ),
+            })),
+          })}`,
+        );
+      }
+
       const response: GenerateContentResponse =
         await this.google.models.generateContent({
           model,
@@ -82,6 +120,17 @@ export class GoogleService implements BytebotAgentService {
 
       const candidate = response.candidates?.[0];
 
+      if (this.googleDebugLoggingEnabled) {
+        this.logger.debug(
+          `Google response summary: ${JSON.stringify({
+            candidateCount: response.candidates?.length || 0,
+            usage: response.usageMetadata,
+            finishReason: candidate?.finishReason,
+            safetyRatings: candidate?.safetyRatings,
+          })}`,
+        );
+      }
+
       if (!candidate) {
         throw new Error('No candidate found in response');
       }
@@ -92,8 +141,10 @@ export class GoogleService implements BytebotAgentService {
         throw new Error('No content found in candidate');
       }
 
-      if (!content.parts) {
-        throw new Error('No parts found in content');
+      if (!content.parts || content.parts.length === 0) {
+        throw new Error(
+          `No parts found in content (finishReason=${candidate.finishReason || 'unknown'})`,
+        );
       }
 
       return {
@@ -105,12 +156,29 @@ export class GoogleService implements BytebotAgentService {
         },
       };
     } catch (error) {
-      if (error.message.includes('AbortError')) {
+      const err = error as any;
+
+      if (String(err?.message || '').includes('AbortError')) {
         throw new BytebotAgentInterrupt();
       }
+
+      if (this.googleDebugLoggingEnabled) {
+        const errorDetails = {
+          message: (error as any)?.message,
+          status: (error as any)?.status,
+          code: (error as any)?.code,
+          cause: (error as any)?.cause,
+          response: (error as any)?.response,
+          error: (error as any)?.error,
+        };
+        this.logger.error(
+          `Google raw error: ${JSON.stringify(errorDetails)}`,
+        );
+      }
+
       this.logger.error(
-        `Error sending message to Google Gemini: ${error.message}`,
-        error.stack,
+        `Error sending message to Google Gemini: ${err?.message || 'unknown error'}`,
+        err?.stack,
       );
       throw error;
     }
@@ -121,6 +189,23 @@ export class GoogleService implements BytebotAgentService {
    */
   private formatMessagesForGoogle(messages: Message[]): Content[] {
     const googleMessages: Content[] = [];
+
+    const unsignedToolUseIds = messages.flatMap((message) => {
+      const blocks = message.content as MessageContentBlock[];
+      return blocks
+        .filter(
+          (block) =>
+            block.type === MessageContentType.ToolUse &&
+            !(block as ToolUseContentBlock).signature,
+        )
+        .map((block) => (block as ToolUseContentBlock).id);
+    });
+
+    if (unsignedToolUseIds.length > 0) {
+      throw new Error(
+        `Missing thought_signature in functionCall parts: ${unsignedToolUseIds.join(', ')}`,
+      );
+    }
 
     // Process each message content block
     for (const message of messages) {
@@ -157,12 +242,19 @@ export class GoogleService implements BytebotAgentService {
               });
               break;
             case MessageContentType.ToolUse:
+              if (!block.signature) {
+                throw new Error(
+                  `Missing thought_signature for tool call: ${block.name} (${block.id})`,
+                );
+              }
+
               parts.push({
                 functionCall: {
                   id: block.id,
                   name: block.name,
                   args: block.input,
                 },
+                thoughtSignature: block.signature,
               });
               break;
             case MessageContentType.Image:
@@ -175,11 +267,14 @@ export class GoogleService implements BytebotAgentService {
               break;
             case MessageContentType.ToolResult: {
               const toolResultContentBlock = block.content[0];
+              const toolName =
+                this.getToolName(block.tool_use_id, messages) ||
+                'computer_screenshot';
               if (toolResultContentBlock.type === MessageContentType.Image) {
                 parts.push({
                   functionResponse: {
                     id: block.tool_use_id,
-                    name: 'screenshot',
+                    name: toolName,
                     response: {
                       ...(!block.is_error && {
                         output: 'screenshot successful',
@@ -200,7 +295,7 @@ export class GoogleService implements BytebotAgentService {
               parts.push({
                 functionResponse: {
                   id: block.tool_use_id,
-                  name: this.getToolName(block.tool_use_id, messages),
+                  name: toolName,
                   response: {
                     ...(!block.is_error && { output: block.content[0] }),
                     ...(block.is_error && { error: block.content[0] }),
@@ -265,9 +360,11 @@ export class GoogleService implements BytebotAgentService {
   private formatGoogleResponse(parts: Part[]): MessageContentBlock[] {
     return parts.map((part) => {
       if (part.text) {
+        // Remove HTML tags from the text response
+        const cleanText = this.stripHtmlTags(part.text);
         return {
           type: MessageContentType.Text,
-          text: part.text,
+          text: cleanText,
         } as TextContentBlock;
       }
 
@@ -280,19 +377,33 @@ export class GoogleService implements BytebotAgentService {
       }
 
       if (part.functionCall) {
+        if (!part.thoughtSignature) {
+          throw new Error(
+            `Gemini functionCall missing thought_signature: ${part.functionCall.name} (${part.functionCall.id || 'no-id'})`,
+          );
+        }
+
         return {
           type: MessageContentType.ToolUse,
           id: part.functionCall.id || uuid(),
           name: part.functionCall.name,
           input: part.functionCall.args,
+          signature: part.thoughtSignature,
         } as ToolUseContentBlock;
       }
 
-      this.logger.warn(`Unknown content type from Google: ${part}`);
+      this.logger.warn(`Unknown content type from Google: ${JSON.stringify(part)}`);
       return {
         type: MessageContentType.Text,
         text: JSON.stringify(part),
       } as TextContentBlock;
     });
+  }
+
+  /**
+   * Strip HTML tags from text
+   */
+  private stripHtmlTags(text: string): string {
+    return text.replace(/<[^>]*>/g, '');
   }
 }
