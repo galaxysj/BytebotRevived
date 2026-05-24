@@ -54,4 +54,11 @@ export class TasksGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitTaskDeleted(taskId: string) {
     this.server.emit('task_deleted', taskId);
   }
+
+  emitMouseCoordinates(taskId: string, coordinates: { x: number; y: number }) {
+    this.server.to(`task_${taskId}`).emit('mouse_moved', {
+      coordinates,
+      timestamp: Date.now(),
+    });
+  }
 }

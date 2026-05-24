@@ -7,6 +7,7 @@ interface UseWebSocketProps {
   onNewMessage?: (message: Message) => void;
   onTaskCreated?: (task: Task) => void;
   onTaskDeleted?: (taskId: string) => void;
+  onMouseMoved?: (data: { coordinates: { x: number; y: number }; timestamp: number }) => void;
 }
 
 export function useWebSocket({
@@ -14,6 +15,7 @@ export function useWebSocket({
   onNewMessage,
   onTaskCreated,
   onTaskDeleted,
+  onMouseMoved,
 }: UseWebSocketProps = {}) {
   const socketRef = useRef<Socket | null>(null);
   const currentTaskIdRef = useRef<string | null>(null);
@@ -61,9 +63,14 @@ export function useWebSocket({
       onTaskDeleted?.(taskId);
     });
 
+    socket.on("mouse_moved", (data: { coordinates: { x: number; y: number }; timestamp: number }) => {
+      console.log("Mouse moved:", data);
+      onMouseMoved?.(data);
+    });
+
     socketRef.current = socket;
     return socket;
-  }, [onTaskUpdate, onNewMessage, onTaskCreated, onTaskDeleted]);
+  }, [onTaskUpdate, onNewMessage, onTaskCreated, onTaskDeleted, onMouseMoved]);
 
   const joinTask = useCallback(
     (taskId: string) => {

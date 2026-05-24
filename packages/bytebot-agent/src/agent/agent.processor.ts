@@ -1,4 +1,5 @@
 import { TasksService } from '../tasks/tasks.service';
+import { TasksGateway } from '../tasks/tasks.gateway';
 import { MessagesService } from '../messages/messages.service';
 import { Injectable, Logger } from '@nestjs/common';
 import {
@@ -50,6 +51,7 @@ export class AgentProcessor {
 
   constructor(
     private readonly tasksService: TasksService,
+    private readonly tasksGateway: TasksGateway,
     private readonly messagesService: MessagesService,
     private readonly summariesService: SummariesService,
     private readonly anthropicService: AnthropicService,
@@ -308,7 +310,12 @@ export class AgentProcessor {
 
       for (const block of messageContentBlocks) {
         if (isComputerToolUseContentBlock(block)) {
-          const result = await handleComputerToolUse(block, this.logger);
+          const result = await handleComputerToolUse(
+            block,
+            this.logger,
+            taskId,
+            this.tasksGateway,
+          );
           generatedToolResults.push(result);
         }
 

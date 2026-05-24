@@ -13,6 +13,7 @@ interface DesktopContainerProps {
   viewOnly?: boolean;
   className?: string;
   status?: VirtualDesktopStatus;
+  mouseCoordinates?: { x: number; y: number } | null;
 }
 
 export const DesktopContainer: React.FC<DesktopContainerProps> = ({
@@ -21,6 +22,7 @@ export const DesktopContainer: React.FC<DesktopContainerProps> = ({
   viewOnly = false,
   className = "",
   status = "running",
+  mouseCoordinates = null,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -98,6 +100,7 @@ export const DesktopContainer: React.FC<DesktopContainerProps> = ({
             <ScreenshotViewer
               screenshot={screenshot}
               className="h-full w-full"
+              mouseCoordinates={mouseCoordinates}
             />
           ) : (
             <VncViewer viewOnly={viewOnly} />

@@ -45,6 +45,7 @@ export default function TaskPage() {
     handleResumeTask,
     handleCancelTask,
     currentTaskId,
+    mouseCoordinates,
   } = useChatSession({ initialTaskId: taskId });
 
   // Determine if task is inactive (show screenshot) or active (show VNC)
@@ -144,6 +145,7 @@ export default function TaskPage() {
                   return "pending";
                 })() as VirtualDesktopStatus
               }
+              mouseCoordinates={mouseCoordinates}
             >
               {canTakeOver() && (
                 <Button

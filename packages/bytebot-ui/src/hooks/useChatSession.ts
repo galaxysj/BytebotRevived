@@ -30,6 +30,7 @@ export function useChatSession({ initialTaskId }: UseChatSessionProps = {}) {
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [mouseCoordinates, setMouseCoordinates] = useState<{ x: number; y: number } | null>(null);
 
   const processedMessageIds = useRef<Set<string>>(new Set());
 
@@ -42,6 +43,13 @@ export function useChatSession({ initialTaskId }: UseChatSessionProps = {}) {
       }
     },
     [currentTaskId],
+  );
+
+  const handleMouseMoved = useCallback(
+    (data: { coordinates: { x: number; y: number }; timestamp: number }) => {
+      setMouseCoordinates(data.coordinates);
+    },
+    [],
   );
 
   // Function to reload grouped messages
@@ -101,6 +109,7 @@ export function useChatSession({ initialTaskId }: UseChatSessionProps = {}) {
     onNewMessage: handleNewMessage,
     onTaskCreated: handleTaskCreated,
     onTaskDeleted: handleTaskDeleted,
+    onMouseMoved: handleMouseMoved,
   });
 
   // Load more messages function for infinite scroll
@@ -330,5 +339,6 @@ export function useChatSession({ initialTaskId }: UseChatSessionProps = {}) {
     handleTakeOverTask,
     handleResumeTask,
     handleCancelTask,
+    mouseCoordinates,
   };
 }

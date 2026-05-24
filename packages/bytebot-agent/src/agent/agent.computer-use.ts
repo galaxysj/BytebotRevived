@@ -22,12 +22,15 @@ import {
   isReadFileToolUseBlock,
 } from '@bytebot/shared';
 import { Logger } from '@nestjs/common';
+import { TasksGateway } from '../tasks/tasks.gateway';
 
 const BYTEBOT_DESKTOP_BASE_URL = process.env.BYTEBOT_DESKTOP_BASE_URL as string;
 
 export async function handleComputerToolUse(
   block: ComputerToolUseContentBlock,
   logger: Logger,
+  taskId?: string,
+  tasksGateway?: TasksGateway,
 ): Promise<ToolResultContentBlock> {
   logger.debug(
     `Handling computer tool use: ${block.name}, tool_use_id: ${block.id}`,
@@ -108,19 +111,19 @@ export async function handleComputerToolUse(
 
   try {
     if (isMoveMouseToolUseBlock(block)) {
-      await moveMouse(block.input);
+      await moveMouse(block.input, taskId, tasksGateway);
     }
     if (isTraceMouseToolUseBlock(block)) {
-      await traceMouse(block.input);
+      await traceMouse(block.input, taskId, tasksGateway);
     }
     if (isClickMouseToolUseBlock(block)) {
-      await clickMouse(block.input);
+      await clickMouse(block.input, taskId, tasksGateway);
     }
     if (isPressMouseToolUseBlock(block)) {
-      await pressMouse(block.input);
+      await pressMouse(block.input, taskId, tasksGateway);
     }
     if (isDragMouseToolUseBlock(block)) {
-      await dragMouse(block.input);
+      await dragMouse(block.input, taskId, tasksGateway);
     }
     if (isScrollToolUseBlock(block)) {
       await scroll(block.input);
@@ -238,11 +241,20 @@ export async function handleComputerToolUse(
   }
 }
 
-async function moveMouse(input: { coordinates: Coordinates }): Promise<void> {
+async function moveMouse(
+  input: { coordinates: Coordinates },
+  taskId?: string,
+  tasksGateway?: TasksGateway,
+): Promise<void> {
   const { coordinates } = input;
   console.log(
     `Moving mouse to coordinates: [${coordinates.x}, ${coordinates.y}]`,
   );
+
+  // Emit mouse coordinates via WebSocket
+  if (taskId && tasksGateway) {
+    tasksGateway.emitMouseCoordinates(taskId, coordinates);
+  }
 
   try {
     await fetch(`${BYTEBOT_DESKTOP_BASE_URL}/computer-use`, {
@@ -259,14 +271,24 @@ async function moveMouse(input: { coordinates: Coordinates }): Promise<void> {
   }
 }
 
-async function traceMouse(input: {
-  path: Coordinates[];
-  holdKeys?: string[];
-}): Promise<void> {
+async function traceMouse(
+  input: {
+    path: Coordinates[];
+    holdKeys?: string[];
+  },
+  taskId?: string,
+  tasksGateway?: TasksGateway,
+): Promise<void> {
   const { path, holdKeys } = input;
   console.log(
     `Tracing mouse to path: ${path} ${holdKeys ? `with holdKeys: ${holdKeys}` : ''}`,
   );
+
+  // Emit final mouse coordinates via WebSocket
+  if (path.length > 0 && taskId && tasksGateway) {
+    const finalCoordinates = path[path.length - 1];
+    tasksGateway.emitMouseCoordinates(taskId, finalCoordinates);
+  }
 
   try {
     await fetch(`${BYTEBOT_DESKTOP_BASE_URL}/computer-use`, {
@@ -284,16 +306,25 @@ async function traceMouse(input: {
   }
 }
 
-async function clickMouse(input: {
-  coordinates?: Coordinates;
-  button: Button;
-  holdKeys?: string[];
-  clickCount: number;
-}): Promise<void> {
+async function clickMouse(
+  input: {
+    coordinates?: Coordinates;
+    button: Button;
+    holdKeys?: string[];
+    clickCount: number;
+  },
+  taskId?: string,
+  tasksGateway?: TasksGateway,
+): Promise<void> {
   const { coordinates, button, holdKeys, clickCount } = input;
   console.log(
     `Clicking mouse ${button} ${clickCount} times ${coordinates ? `at coordinates: [${coordinates.x}, ${coordinates.y}] ` : ''} ${holdKeys ? `with holdKeys: ${holdKeys}` : ''}`,
   );
+
+  // Emit mouse coordinates via WebSocket
+  if (coordinates && taskId && tasksGateway) {
+    tasksGateway.emitMouseCoordinates(taskId, coordinates);
+  }
 
   try {
     await fetch(`${BYTEBOT_DESKTOP_BASE_URL}/computer-use`, {
@@ -313,15 +344,24 @@ async function clickMouse(input: {
   }
 }
 
-async function pressMouse(input: {
-  coordinates?: Coordinates;
-  button: Button;
-  press: Press;
-}): Promise<void> {
+async function pressMouse(
+  input: {
+    coordinates?: Coordinates;
+    button: Button;
+    press: Press;
+  },
+  taskId?: string,
+  tasksGateway?: TasksGateway,
+): Promise<void> {
   const { coordinates, button, press } = input;
   console.log(
     `Pressing mouse ${button} ${press} ${coordinates ? `at coordinates: [${coordinates.x}, ${coordinates.y}]` : ''}`,
   );
+
+  // Emit mouse coordinates via WebSocket
+  if (coordinates && taskId && tasksGateway) {
+    tasksGateway.emitMouseCoordinates(taskId, coordinates);
+  }
 
   try {
     await fetch(`${BYTEBOT_DESKTOP_BASE_URL}/computer-use`, {
@@ -340,15 +380,25 @@ async function pressMouse(input: {
   }
 }
 
-async function dragMouse(input: {
-  path: Coordinates[];
-  button: Button;
-  holdKeys?: string[];
-}): Promise<void> {
+async function dragMouse(
+  input: {
+    path: Coordinates[];
+    button: Button;
+    holdKeys?: string[];
+  },
+  taskId?: string,
+  tasksGateway?: TasksGateway,
+): Promise<void> {
   const { path, button, holdKeys } = input;
   console.log(
     `Dragging mouse to path: ${path} ${holdKeys ? `with holdKeys: ${holdKeys}` : ''}`,
   );
+
+  // Emit final mouse coordinates via WebSocket
+  if (path.length > 0 && taskId && tasksGateway) {
+    const finalCoordinates = path[path.length - 1];
+    tasksGateway.emitMouseCoordinates(taskId, finalCoordinates);
+  }
 
   try {
     await fetch(`${BYTEBOT_DESKTOP_BASE_URL}/computer-use`, {
